@@ -17,7 +17,7 @@
 #ifndef TNT_FILAMENT_DRIVER_VULKANCONSTANTS_H
 #define TNT_FILAMENT_DRIVER_VULKANCONSTANTS_H
 
-#define FILAMENT_VULKAN_VERBOSE 0
+#define FILAMENT_VULKAN_VERBOSE 1
 
 // In debug builds, we enable validation layers and set up a debug callback if the extension is
 // available. Caution: the debug callback causes a null pointer dereference with optimized builds.
@@ -32,7 +32,7 @@
 // }
 //
 #if defined(NDEBUG)
-#define VK_ENABLE_VALIDATION 0
+#define VK_ENABLE_VALIDATION 1
 #else
 #define VK_ENABLE_VALIDATION 1
 #endif
