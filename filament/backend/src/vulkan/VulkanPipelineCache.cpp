@@ -131,19 +131,16 @@ void VulkanPipelineCache::getOrCreateDescriptors(
     // If there are no available descriptor sets that can be re-used, then create brand new ones
     // (one for each type). Otherwise, grab a descriptor set from each of the arenas.
     if (mDescriptorSetArena[0].empty()) {
+        if (mDescriptorBundles.size() >= mDescriptorPoolSize) {
+            growDescriptorPool();
+        }
         VkDescriptorSetAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = mDescriptorPool;
         allocInfo.descriptorSetCount = DESCRIPTOR_TYPE_COUNT;
         allocInfo.pSetLayouts = mDescriptorSetLayouts;
-
-        if (mDescriptorBundles.size() >= mDescriptorPoolSize) {
-            // TODO: handle this gracefully.
-            *overflow = true;
-            return;
-        }
-
         VkResult err = vkAllocateDescriptorSets(mDevice, &allocInfo, descriptorSets);
+        assert_invariant(err == VK_SUCCESS);
         if (err != VK_SUCCESS) {
             *overflow = true;
             return;
@@ -700,6 +697,23 @@ void VulkanPipelineCache::destroyLayoutsAndDescriptors() noexcept {
         mCmdBufferState[i].currentDescriptorBundle = nullptr;
     }
     markDirtyDescriptor();
+}
+
+void VulkanPipelineCache::growDescriptorPool() noexcept {
+    mExtinctDescriptorPool.push_back(mDescriptorPool);
+    mDescriptorPoolSize *= 2;
+    mDescriptorPool = createDescriptorPool(mDescriptorPoolSize);
+
+    // TODO
+
+    // Here:
+    //     Destroy everything in mDescriptorSetArena.
+    //     Move everything from mDescriptorBundles to mExtinctDescriptorBundles.
+    // In gc:
+    //      Clear cmdbuf bits from mExtinctDescriptorBundles.
+    //      If any cmdbuf masks in mExtinctDescriptorBundles are zero, destroy them and remove them.
+    //      If mExtinctDescriptorBundles is empty, destroy all entries in mExtinctDescriptorPool and clear it.
+
 }
 
 bool VulkanPipelineCache::PipelineEqual::operator()(const VulkanPipelineCache::PipelineKey& k1,
