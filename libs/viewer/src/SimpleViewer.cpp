@@ -313,6 +313,12 @@ SimpleViewer::SimpleViewer(filament::Engine* engine, filament::Scene* scene, fil
     mSettings.view.ssao.enabled = true;
     mSettings.view.bloom.enabled = true;
 
+    mSettings.view.dithering = Dithering::NONE;
+    mSettings.view.antiAliasing = AntiAliasing::NONE;
+    mSettings.view.sampleCount = 1;
+    mSettings.view.ssao.enabled = false;
+    mSettings.view.bloom.enabled = false;
+
     using namespace filament;
     LightManager::Builder(LightManager::Type::SUN)
         .color(mSettings.lighting.sunlightColor)
@@ -597,7 +603,7 @@ void SimpleViewer::updateUserInterface() {
 
     DebugRegistry& debug = mEngine->getDebugRegistry();
 
-    if (ImGui::CollapsingHeader("View")) {
+    if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Indent();
 
         bool dither = mSettings.view.dithering == Dithering::TEMPORAL;
