@@ -370,6 +370,11 @@ FrameGraphId<FrameGraphTexture> PostProcessManager::structure(FrameGraph& fg,
                     });
                 }
             },
+
+            // renderPass 0 has a depth subresource at level = 1
+            // renderPass 1 has a depth subresource at level = 2
+            // renderPass levelCount-2 has a depth subresource at level = levelCount-1
+
             [=](FrameGraphResources const& resources, auto const& data, DriverApi& driver) {
                 auto in = resources.getTexture(data.depth);
                 // The first mip already exists, so we process n-1 lods
@@ -490,7 +495,8 @@ FrameGraphId<FrameGraphTexture> PostProcessManager::screenSpaceAmbientOcclusion(
                 builder.declareRenderPass("SSAO Target", {
                         .attachments = { .color = { data.ssao }, .depth = data.depth },
                         .clearColor = { 1.0f },
-                        .clearFlags = TargetBufferFlags::COLOR
+                        .clearFlags = TargetBufferFlags::COLOR,
+                        .depthFeedback = true
                 });
             },
             [=](FrameGraphResources const& resources,

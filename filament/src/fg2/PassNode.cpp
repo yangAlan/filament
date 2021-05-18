@@ -197,6 +197,7 @@ void RenderPassNode::resolve() noexcept {
         }
 
         rt.backend.params.clearColor = rt.descriptor.clearColor;
+        rt.backend.params.depthFeedback = rt.descriptor.depthFeedback;
 
         /*
          * Handle the special imported render target

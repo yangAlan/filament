@@ -50,6 +50,7 @@ struct FrameGraphRenderPass {
         uint8_t samples = 0; // # of samples (0 = unset, default)
         backend::TargetBufferFlags clearFlags{};
         backend::TargetBufferFlags discardStart{};
+        bool depthFeedback = false;
     };
 
     struct ImportDescriptor {

@@ -937,7 +937,7 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     const VkExtent2D extent = rt->getExtent();
     assert_invariant(extent.width > 0 && extent.height > 0);
 
-    const VulkanAttachment depth = rt->getDepth();
+    VulkanAttachment depth = rt->getDepth();
 
     // Filament has the expectation that the contents of the swap chain are not preserved on the
     // first render pass. Note however that its contents are often preserved on subsequent render
@@ -946,6 +946,34 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     if (rt->isSwapChain() && surface.firstRenderPass) {
         discardStart |= TargetBufferFlags::COLOR;
         surface.firstRenderPass = false;
+    }
+
+    const VkCommandBuffer cmdbuffer = mContext.commands->get().cmdbuffer;
+
+    // If depth feedback is required, we need to transition the layout of all affected subresources.
+    // We transition all miplevels / layers because we don't know which ones will be sampled from.
+    VulkanTexture* depthFeedback = nullptr;
+    if (params.depthFeedback) {
+        assert_invariant(depth.texture);
+        depthFeedback = depth.texture;
+        const VulkanLayoutTransition transition = {
+            .image = depth.image,
+            .oldLayout = depth.layout,
+            .newLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,
+            .subresources = {
+                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .baseMipLevel = 0,
+                .levelCount = depth.texture->levels,
+                .baseArrayLayer = 0,
+                .layerCount = depth.texture->depth,
+            },
+            .srcStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            .srcAccessMask = 0,
+            .dstStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            .dstAccessMask = 0,
+        };
+        transitionImageLayout(cmdbuffer, transition);
+        depth.layout = transition.newLayout;
     }
 
     // Create the VkRenderPass or fetch it from cache.
@@ -1048,7 +1076,6 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     }
     renderPassInfo.pClearValues = &clearValues[0];
 
-    const VkCommandBuffer cmdbuffer = mContext.commands->get().cmdbuffer;
     vkCmdBeginRenderPass(cmdbuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     VkViewport viewport = mContext.viewport = {
@@ -1066,7 +1093,8 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     mContext.currentRenderPass = {
         .renderPass = renderPassInfo.renderPass,
         .subpassMask = params.subpassMask,
-        .currentSubpass = 0
+        .currentSubpass = 0,
+        .depthFeedback = depthFeedback
     };
 }
 
@@ -1075,6 +1103,27 @@ void VulkanDriver::endRenderPass(int) {
     vkCmdEndRenderPass(cmdbuffer);
 
     assert_invariant(mCurrentRenderTarget);
+
+    VulkanTexture* depthFeedback = mContext.currentRenderPass.depthFeedback;
+    if (depthFeedback) {
+        const VulkanLayoutTransition transition = {
+            .image = depthFeedback->getVkImage(),
+            .oldLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,
+            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .subresources = {
+                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .baseMipLevel = 0,
+                .levelCount = depthFeedback->levels,
+                .baseArrayLayer = 0,
+                .layerCount = depthFeedback->depth,
+            },
+            .srcStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            .srcAccessMask = 0,
+            .dstStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            .dstAccessMask = 0,
+        };
+        transitionImageLayout(cmdbuffer, transition);
+    }
 
     // Since we might soon be sampling from the render target that we just wrote to, we need a
     // pipeline barrier between framebuffer writes and shader reads. This is a memory barrier rather
