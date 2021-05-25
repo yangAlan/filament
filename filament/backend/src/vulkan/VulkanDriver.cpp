@@ -523,17 +523,13 @@ void VulkanDriver::createSwapChainR(Handle<HwSwapChain> sch, void* nativeWindow,
     const VkInstance instance = mContext.instance;
     auto vksurface = (VkSurfaceKHR) mContextManager.createVkSurfaceKHR(nativeWindow, instance,
             flags);
-    auto* swapChain = construct_handle<VulkanSwapChain>(mHandleMap, sch, mContext, vksurface);
-
-    // TODO: move the following line into makeCurrent.
-    mContext.currentSurface = &swapChain->surfaceContext;
+    construct_handle<VulkanSwapChain>(mHandleMap, sch, mContext, vksurface);
 }
 
 void VulkanDriver::createSwapChainHeadlessR(Handle<HwSwapChain> sch,
         uint32_t width, uint32_t height, uint64_t flags) {
     assert_invariant(width > 0 && height > 0 && "Vulkan requires non-zero swap chain dimensions.");
-    auto* swapChain = construct_handle<VulkanSwapChain>(mHandleMap, sch, mContext, width, height);
-    mContext.currentSurface = &swapChain->surfaceContext;
+    construct_handle<VulkanSwapChain>(mHandleMap, sch, mContext, width, height);
 }
 
 void VulkanDriver::createStreamFromTextureIdR(Handle<HwStream> sh, intptr_t externalTextureId,
@@ -923,8 +919,6 @@ void VulkanDriver::updateSamplerGroup(Handle<HwSamplerGroup> sbh,
 }
 
 void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassParams& params) {
-    assert_invariant(mContext.currentSurface);
-    VulkanSurfaceContext& surface = *mContext.currentSurface;
     mCurrentRenderTarget = handle_cast<VulkanRenderTarget>(mHandleMap, rth);
     VulkanRenderTarget* rt = mCurrentRenderTarget;
 
@@ -935,9 +929,13 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     // first render pass. Note however that its contents are often preserved on subsequent render
     // passes, due to multiple views.
     TargetBufferFlags discardStart = params.flags.discardStart;
-    if (rt->isSwapChain() && surface.firstRenderPass) {
-        discardStart |= TargetBufferFlags::COLOR;
-        surface.firstRenderPass = false;
+    if (rt->isSwapChain()) {
+        assert_invariant(mContext.currentSurface);
+        VulkanSurfaceContext& surface = *mContext.currentSurface;
+        if (surface.firstRenderPass) {
+            discardStart |= TargetBufferFlags::COLOR;
+            surface.firstRenderPass = false;
+        }
     }
 
     const VkCommandBuffer cmdbuffer = mContext.commands->get().cmdbuffer;
