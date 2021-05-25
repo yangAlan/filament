@@ -638,7 +638,7 @@ void VulkanDriver::destroySamplerGroup(Handle<HwSamplerGroup> sbh) {
 void VulkanDriver::destroySwapChain(Handle<HwSwapChain> sch) {
     if (sch) {
         VulkanSwapChain& surfaceContext = *handle_cast<VulkanSwapChain>(mHandleMap, sch);
-        backend::destroySwapChain(mContext, surfaceContext);
+        surfaceContext.destroy();
 
         vkDestroySurfaceKHR(mContext.instance, surfaceContext.surface, VKALLOC);
         if (mContext.currentSurface == &surfaceContext) {
@@ -1205,7 +1205,7 @@ void VulkanDriver::makeCurrent(Handle<HwSwapChain> drawSch, Handle<HwSwapChain> 
     // With MoltenVK, it might take several attempts to acquire a swap chain that is not marked as
     // "out of date" after a resize event.
     int attempts = 0;
-    while (!acquireSwapChain(mContext, surf)) {
+    while (!surf.acquire()) {
         refreshSwapChain();
         if (attempts++ > SWAP_CHAIN_MAX_ATTEMPTS) {
             PANIC_POSTCONDITION("Unable to acquire image from swap chain.");
@@ -1228,7 +1228,7 @@ void VulkanDriver::makeCurrent(Handle<HwSwapChain> drawSch, Handle<HwSwapChain> 
     const VkExtent2D current = caps.currentExtent;
     if (current.width != previous.width || current.height != previous.height) {
         refreshSwapChain();
-        acquireSwapChain(mContext, surf);
+        surf.acquire();
     }
     #endif
 }
@@ -1238,7 +1238,7 @@ void VulkanDriver::commit(Handle<HwSwapChain> sch) {
 
     // Before swapping, transition the current swap chain image to the PRESENT layout. This cannot
     // be done as part of the render pass because it does not know if it is last pass in the frame.
-    makeSwapChainPresentable(mContext, surface);
+    surface.makePresentable();
 
     if (mContext.commands->flush()) {
         collectGarbage();
@@ -1825,8 +1825,8 @@ void VulkanDriver::refreshSwapChain() {
     VulkanSwapChain& surface = *mContext.currentSurface;
 
     assert_invariant(!surface.headlessQueue && "Resizing headless swap chains is not supported.");
-    backend::destroySwapChain(mContext, surface);
-    createSwapChain(mContext, surface);
+    surface.destroy();
+    surface.create();
 
     mFramebufferCache.reset();
 }

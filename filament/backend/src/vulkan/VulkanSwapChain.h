@@ -27,6 +27,12 @@ struct VulkanSwapChain : public HwSwapChain {
     VulkanSwapChain(VulkanContext& context, VkSurfaceKHR vksurface);
     VulkanSwapChain(VulkanContext& context, uint32_t width, uint32_t height);
 
+    bool acquire();
+    void create();
+    void destroy();
+    void makePresentable();
+
+    VulkanContext& context;
     VkSurfaceKHR surface;
     VkSwapchainKHR swapchain;
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
@@ -49,11 +55,6 @@ struct VulkanSwapChain : public HwSwapChain {
     bool suboptimal;
     bool firstRenderPass;
 };
-
-bool acquireSwapChain(VulkanContext& context, VulkanSwapChain& surface);
-void createSwapChain(VulkanContext& context, VulkanSwapChain& sc);
-void destroySwapChain(VulkanContext& context, VulkanSwapChain& sc);
-void makeSwapChainPresentable(VulkanContext& context, VulkanSwapChain& surface);
 
 } // namespace filament
 } // namespace backend
