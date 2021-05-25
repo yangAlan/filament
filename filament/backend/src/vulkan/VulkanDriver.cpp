@@ -637,8 +637,8 @@ void VulkanDriver::destroySamplerGroup(Handle<HwSamplerGroup> sbh) {
 
 void VulkanDriver::destroySwapChain(Handle<HwSwapChain> sch) {
     if (sch) {
-        VulkanSurfaceContext& surfaceContext = handle_cast<VulkanSwapChain>(mHandleMap, sch)->surfaceContext;
-        backend::destroySwapChain(mContext, surfaceContext, mDisposer);
+        VulkanSwapChain& surfaceContext = *handle_cast<VulkanSwapChain>(mHandleMap, sch);
+        backend::destroySwapChain(mContext, surfaceContext);
 
         vkDestroySurfaceKHR(mContext.instance, surfaceContext.surface, VKALLOC);
         if (mContext.currentSurface == &surfaceContext) {
@@ -931,7 +931,7 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     TargetBufferFlags discardStart = params.flags.discardStart;
     if (rt->isSwapChain()) {
         assert_invariant(mContext.currentSurface);
-        VulkanSurfaceContext& surface = *mContext.currentSurface;
+        VulkanSwapChain& surface = *mContext.currentSurface;
         if (surface.firstRenderPass) {
             discardStart |= TargetBufferFlags::COLOR;
             surface.firstRenderPass = false;
@@ -1194,7 +1194,7 @@ void VulkanDriver::setRenderPrimitiveRange(Handle<HwRenderPrimitive> rph,
 void VulkanDriver::makeCurrent(Handle<HwSwapChain> drawSch, Handle<HwSwapChain> readSch) {
     ASSERT_PRECONDITION_NON_FATAL(drawSch == readSch,
                                   "Vulkan driver does not support distinct draw/read swap chains.");
-    VulkanSurfaceContext& surf = handle_cast<VulkanSwapChain>(mHandleMap, drawSch)->surfaceContext;
+    VulkanSwapChain& surf = *handle_cast<VulkanSwapChain>(mHandleMap, drawSch);
     mContext.currentSurface = &surf;
 
     // Leave early if the swap chain image has already been acquired but not yet presented.
@@ -1234,7 +1234,7 @@ void VulkanDriver::makeCurrent(Handle<HwSwapChain> drawSch, Handle<HwSwapChain> 
 }
 
 void VulkanDriver::commit(Handle<HwSwapChain> sch) {
-    VulkanSurfaceContext& surface = handle_cast<VulkanSwapChain>(mHandleMap, sch)->surfaceContext;
+    VulkanSwapChain& surface = *handle_cast<VulkanSwapChain>(mHandleMap, sch);
 
     // Before swapping, transition the current swap chain image to the PRESENT layout. This cannot
     // be done as part of the render pass because it does not know if it is last pass in the frame.
@@ -1822,10 +1822,10 @@ void VulkanDriver::endTimerQuery(Handle<HwTimerQuery> tqh) {
 }
 
 void VulkanDriver::refreshSwapChain() {
-    VulkanSurfaceContext& surface = *mContext.currentSurface;
+    VulkanSwapChain& surface = *mContext.currentSurface;
 
     assert_invariant(!surface.headlessQueue && "Resizing headless swap chains is not supported.");
-    backend::destroySwapChain(mContext, surface, mDisposer);
+    backend::destroySwapChain(mContext, surface);
     createSwapChain(mContext, surface);
 
     mFramebufferCache.reset();
