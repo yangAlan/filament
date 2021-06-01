@@ -31,8 +31,8 @@
 
 #if defined(WIN32)
 #include <io.h>
-#include <Windows.h>
-#include <Winbase.h>
+#include <windows.h>
+#include <winbase.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/types.h>
